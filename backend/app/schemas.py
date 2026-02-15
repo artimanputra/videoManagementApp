@@ -1,9 +1,23 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, List
 from datetime import datetime
 
 # pydantic v2 renamed `orm_mode` -> `from_attributes`. Detect and be compatible
 PYDANTIC_V2 = hasattr(BaseModel, "model_config")
+
+
+class SegmentOut(BaseModel):
+    id: str
+    start: float
+    end: float
+    segment_url: str
+    created_at: datetime
+
+    if PYDANTIC_V2:
+        model_config = ConfigDict(from_attributes=True)
+    else:
+        class Config:
+            orm_mode = True
 
 
 class VideoCreate(BaseModel):
@@ -14,25 +28,26 @@ class VideoCreate(BaseModel):
 
 
 class VideoOut(BaseModel):
-    id: int
+    id: str
     title: str
     description: Optional[str]
     video_url: str
     duration: Optional[float]
     status: str
     created_at: datetime
+    segments: List[SegmentOut] = []
 
     if PYDANTIC_V2:
-        model_config = {"from_attributes": True}
+        model_config = ConfigDict(from_attributes=True)
     else:
         class Config:
             orm_mode = True
 
 
 class VideoUpdate(BaseModel):
-    title: Optional[str]
-    description: Optional[str]
-    status: Optional[str]
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
 
 
 class Segment(BaseModel):

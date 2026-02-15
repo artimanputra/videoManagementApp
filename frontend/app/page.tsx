@@ -7,6 +7,7 @@ const API = "http://localhost:8000";
 
 interface Video {
   id: number;
+  file_id: string;
   title: string;
   description: string | null;
   video_url: string;
@@ -177,7 +178,7 @@ export default function Home() {
               {videos.map((v) => (
                 <li key={v.id}>
                   <Link
-                    href={`/videos/${v.id}`}
+                    href={`/videos/${v.file_id}`}
                     className="block border rounded p-4 bg-white hover:shadow transition"
                   >
                     <div className="flex items-center justify-between">

@@ -10,7 +10,6 @@ export default function CreateVideoPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [processingStatus, setProcessingStatus] = useState("");
@@ -29,7 +28,6 @@ export default function CreateVideoPage() {
     const formData = new FormData();
     formData.append("title", title);
     if (description) formData.append("description", description);
-    if (duration) formData.append("duration", duration);
     formData.append("file", file);
 
     try {
@@ -45,9 +43,9 @@ export default function CreateVideoPage() {
       const video = await res.json();
       setProcessingStatus(`Upload complete! Video status: ${video.status}`);
       
-      // Redirect to video detail page
+      // Redirect to video detail page using file_id
       setTimeout(() => {
-        router.push(`/videos/${video.id}`);
+        router.push(`/videos/${video.file_id}`);
       }, 1500);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -103,19 +101,6 @@ export default function CreateVideoPage() {
               onChange={(e) => setDescription(e.target.value)}
               className="border rounded px-3 py-2 w-full text-sm text-black"
               rows={3}
-              disabled={submitting}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Duration (seconds)
-            </label>
-            <input
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm text-black"
-              step="0.1"
               disabled={submitting}
             />
           </div>
