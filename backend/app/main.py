@@ -29,13 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.on_event("startup")
 async def on_startup():
     await init_db()
-
-
-
 
 
 @app.post("/videos", response_model=VideoOut)
@@ -43,35 +39,43 @@ async def create_video(
     title: str = Form(...),
     description: str | None = Form(None),
     duration: float | None = Form(None),
-    status: str = Form("Draft"),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Accepts a multipart upload and stores the file to Cloudflare R2 in chunks,
-    then stores metadata in the DB.
+    """Accepts a multipart upload and stores the file to local videos directory.
+    Starts with 'Uploading' status and transitions to 'Draft' when complete.
     """
     # prepare key
     filename = os.path.basename(file.filename)
     key = f"{uuid4().hex}_{filename}"
 
-    # Save file to local videos directory
-    try:
-        await run_in_threadpool(storage.upload_file_multipart, file.file, key)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"upload failed: {exc}")
-
     # Local file path as URL
     video_url = f"/videos/{key}"
 
-    # insert into DB
+    # insert into DB with "Uploading" status
     video = Video(
         title=title,
         description=description,
         video_url=video_url,
         duration=duration,
-        status=status,
+        status="Uploading",
         created_at=datetime.utcnow(),
     )
+    db.add(video)
+    await db.commit()
+    await db.refresh(video)
+
+    # Save file to local videos directory
+    try:
+        await run_in_threadpool(storage.upload_file_multipart, file.file, key)
+    except Exception as exc:
+        video.status = "Failed"
+        db.add(video)
+        await db.commit()
+        raise HTTPException(status_code=500, detail=f"upload failed: {exc}")
+
+    # Mark as Draft when upload is complete
+    video.status = "Draft"
     db.add(video)
     await db.commit()
     await db.refresh(video)
@@ -87,17 +91,44 @@ async def list_videos(
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    List videos with pagination, search, and filtering.
+    
+    Query Parameters:
+    - page: Page number (default: 1)
+    - size: Items per page (default: 10, max: 100)
+    - search: Search by title (case-insensitive partial match)
+    - status: Filter by status (Draft, Uploading, Processing, Ready, Failed)
+    
+    Returns: {items, total, page, size, pages}
+    """
     stmt = select(Video)
+    
+    # Apply filters
     if search:
         stmt = stmt.where(Video.title.ilike(f"%{search}%"))
     if status:
         stmt = stmt.where(Video.status == status)
+    
+    # Get total count before pagination
     total_res = await db.execute(select(func.count()).select_from(stmt.subquery()))
     total = total_res.scalar_one()
-    stmt = stmt.offset((page - 1) * size).limit(size)
+    
+    # Calculate total pages
+    total_pages = (total + size - 1) // size
+    
+    # Apply pagination and ordering
+    stmt = stmt.order_by(Video.created_at.desc()).offset((page - 1) * size).limit(size)
     res = await db.execute(stmt)
     items = res.scalars().all()
-    return {"items": items, "total": total, "page": page, "size": size}
+    
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": total_pages
+    }
 
 
 @app.get("/videos/{video_id}", response_model=VideoOut)
@@ -185,7 +216,8 @@ async def split_video(video_id: int, payload: SplitRequest, db: AsyncSession = D
             # upload segment
             seg_key = f"{video_id}_segment_{uuid4().hex}_seg{idx}.mp4"
             try:
-                await run_in_threadpool(storage.upload_file_multipart, open(out_path, "rb"), seg_key)
+                with open(out_path, "rb") as f:
+                    await run_in_threadpool(storage.upload_file_multipart, f, seg_key)
             except Exception as exc:
                 video.status = "Failed"
                 db.add(video)

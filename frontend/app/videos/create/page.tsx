@@ -13,6 +13,7 @@ export default function CreateVideoPage() {
   const [duration, setDuration] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,6 +24,7 @@ export default function CreateVideoPage() {
     }
     setSubmitting(true);
     setError("");
+    setProcessingStatus("Preparing upload...");
 
     const formData = new FormData();
     formData.append("title", title);
@@ -31,6 +33,7 @@ export default function CreateVideoPage() {
     formData.append("file", file);
 
     try {
+      setProcessingStatus("Uploading video...");
       const res = await fetch(`${API}/videos`, {
         method: "POST",
         body: formData,
@@ -40,9 +43,15 @@ export default function CreateVideoPage() {
         throw new Error(data.detail || "Upload failed");
       }
       const video = await res.json();
-      router.push(`/videos/${video.id}`);
+      setProcessingStatus(`Upload complete! Video status: ${video.status}`);
+      
+      // Redirect to video detail page
+      setTimeout(() => {
+        router.push(`/videos/${video.id}`);
+      }, 1500);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
+      setProcessingStatus("");
     } finally {
       setSubmitting(false);
     }
@@ -64,6 +73,13 @@ export default function CreateVideoPage() {
           </div>
         )}
 
+        {processingStatus && (
+          <div className="bg-blue-100 text-blue-700 p-3 rounded mb-4 text-sm flex items-center">
+            <span className="inline-block animate-spin mr-2">⏳</span>
+            {processingStatus}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -73,8 +89,9 @@ export default function CreateVideoPage() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm"
+              className="border rounded px-3 py-2 w-full text-sm text-black"
               required
+              disabled={submitting}
             />
           </div>
           <div>
@@ -84,8 +101,9 @@ export default function CreateVideoPage() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm"
+              className="border rounded px-3 py-2 w-full text-sm text-black"
               rows={3}
+              disabled={submitting}
             />
           </div>
           <div>
@@ -96,8 +114,9 @@ export default function CreateVideoPage() {
               type="number"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm"
+              className="border rounded px-3 py-2 w-full text-sm text-black"
               step="0.1"
+              disabled={submitting}
             />
           </div>
           <div>
@@ -108,8 +127,9 @@ export default function CreateVideoPage() {
               type="file"
               accept="video/*"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="text-sm"
+              className="text-sm text-black"
               required
+              disabled={submitting}
             />
           </div>
           <button

@@ -149,7 +149,7 @@ export default function VideoDetail() {
                 placeholder="Start (s)"
                 value={seg.start}
                 onChange={(e) => updateSegment(idx, "start", e.target.value)}
-                className="border rounded px-2 py-1 w-28 text-sm"
+                className="border rounded px-2 py-1 w-28 text-sm text-black"
               />
               <span className="text-gray-400">to</span>
               <input
@@ -158,7 +158,7 @@ export default function VideoDetail() {
                 placeholder="End (s)"
                 value={seg.end}
                 onChange={(e) => updateSegment(idx, "end", e.target.value)}
-                className="border rounded px-2 py-1 w-28 text-sm"
+                className="border rounded px-2 py-1 w-28 text-sm text-black"
               />
               {segments.length > 1 && (
                 <button
