@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ;
 
 export default function CreateVideoPage() {
   const router = useRouter();
@@ -45,7 +45,7 @@ export default function CreateVideoPage() {
       
       // Redirect to video detail page using file_id
       setTimeout(() => {
-        router.push(`/videos/${video.file_id}`);
+        router.push(`/videos/${video.id}`);
       }, 1500);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -56,12 +56,12 @@ export default function CreateVideoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8 bg-gradient-to-br from-slate-900 to-slate-800">
       <div className="max-w-lg mx-auto">
         <Link href="/" className="text-blue-600 hover:underline text-sm">
           &larr; Back to list
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-6">
+        <h1 className="text-3xl font-bold text-white mt-4 mb-6">
           Create Video
         </h1>
 
@@ -78,41 +78,41 @@ export default function CreateVideoPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit}  className="space-y-4 bg-slate-800/80 backdrop-blur border border-slate-700 p-6 rounded-lg shadow-lg">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-white  mb-1">
               Title *
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm text-black"
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
               disabled={submitting}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-white  mb-1">
               Description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm text-black"
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={3}
               disabled={submitting}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-white mb-1">
               Video File *
             </label>
             <input
               type="file"
               accept="video/*"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="text-sm text-black"
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
               disabled={submitting}
             />

@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-const API = "http://localhost:8000";
-
+const API = process.env.NEXT_PUBLIC_API_URL ;
 interface Video {
   id: number;
   title: string;
@@ -99,7 +98,7 @@ export default function EditVideoPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen p-8">
         <div className="max-w-lg mx-auto">
           <p className="text-gray-500">Loading video...</p>
         </div>
@@ -121,16 +120,16 @@ export default function EditVideoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8 bg-gradient-to-br from-slate-900 to-slate-800">
       <div className="max-w-lg mx-auto">
         <Link
           href={`/videos/${id}`}
-          className="text-blue-600 hover:underline text-sm"
+        className="text-blue-400 hover:text-blue-300 text-sm"
         >
           &larr; Back to video
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-6">
+        <h1 className="text-3xl font-bold text-white mt-4 mb-6">
           Edit Video
         </h1>
 
@@ -147,42 +146,45 @@ export default function EditVideoPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded border">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 bg-slate-800/80 backdrop-blur border border-slate-700 p-6 rounded-lg shadow-lg"
+        >
+    <div>
+            <label className="block text-sm font-medium text-white  mb-1">
               Title *
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm text-black"
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
               disabled={submitting}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-white mb-1">
               Description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm text-black"
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={4}
               disabled={submitting}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-white mb-1">
               Status
             </label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="border rounded px-3 py-2 w-full text-sm text-black"
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={submitting}
             >
               {STATUS_OPTIONS.map((opt) => (
@@ -200,14 +202,14 @@ export default function EditVideoPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 text-sm disabled:opacity-50 flex-1"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 flex-1"
             >
               {submitting ? "Saving..." : "Save Changes"}
             </button>
             <Link
               href={`/videos/${id}`}
-              className="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400 text-sm flex items-center justify-center"
-            >
+            className="bg-slate-600 hover:bg-slate-500 text-white px-6 py-2 rounded-lg text-sm flex items-center justify-center"
+          >
               Cancel
             </Link>
           </div>

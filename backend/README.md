@@ -6,7 +6,7 @@ A FastAPI-based video management system with PostgreSQL, async operations, and v
 
 ### Prerequisites
 - Python 3.9+
-- PostgreSQL (or use [Neon](https://neon.tech) for free PostgreSQL)
+- PostgreSQL 
 - FFmpeg (for video splitting)
 
 ### Installation
@@ -38,7 +38,6 @@ A FastAPI-based video management system with PostgreSQL, async operations, and v
 4. **Install dependencies**
    ```bash
    pip install -r requirements.txt
-   pip install uvicorn
    ```
 
 5. **Setup environment variables**
@@ -101,20 +100,10 @@ A FastAPI-based video management system with PostgreSQL, async operations, and v
 
 ## Video Status Flow
 
-1. **Uploading** - File is being uploaded
+ - File is being uploaded
 2. **Draft** - Video uploaded, ready for editing
 3. **Processing** - Video segments are being created
 4. **Ready** - Segments ready
 5. **Failed** - Error during processing
 
-## Development
 
-- Auto-reload enabled with `--reload` flag
-- API documentation: http://localhost:8000/docs (Swagger UI)
-- Alternative docs: http://localhost:8000/redoc
-
-## Troubleshooting
-
-- **ffmpeg command not found**: Make sure FFmpeg is installed and in PATH
-- **Database connection error**: Check your `DATABASE_URL` in `.env`
-- **Port 8000 already in use**: Use different port: `--port 8001`

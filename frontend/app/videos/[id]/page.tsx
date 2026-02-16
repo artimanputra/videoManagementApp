@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ;
 
 interface Video {
   id: number;
@@ -33,9 +33,7 @@ interface Segment {
 
 export default function VideoDetail() {
   const params = useParams();
-  const fileId = params.id as string;  // This is now the file_id (e.g., "42b15bc7...mp4")
-  const videoRef = useRef<HTMLVideoElement>(null);
-
+  const id = params.id as string;
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
   const [segments, setSegments] = useState<Segment[]>([{ start: 0, end: 5 }]);
@@ -47,23 +45,11 @@ export default function VideoDetail() {
   const [backendStatus, setBackendStatus] = useState<any>(null);
 
   useEffect(() => {
-    // Check backend health
-    fetch(`${API}/health`)
-      .then((r) => r.json())
-      .then((data) => {
-        console.log("Backend health:", data);
-        setBackendStatus(data);
-      })
-      .catch((err) => {
-        console.error("Backend connection failed:", err);
-        setError("Cannot connect to backend at " + API);
-      });
-
     // Load video
-    fetch(`${API}/videos/${fileId}`)
+    fetch(`${API}/videos/${encodeURIComponent(id)}`)
       .then((r) => {
         if (!r.ok) {
-          throw new Error(`Video not found (HTTP ${r.status}). Video file ${fileId} does not exist.`);
+          throw new Error(`Video not found (HTTP ${r.status}). Video file ${id} does not exist.`);
         }
         return r.json();
       })
@@ -76,7 +62,7 @@ export default function VideoDetail() {
         setError(err.message || "Failed to load video. Please check if the video exists.");
       })
       .finally(() => setLoading(false));
-  }, [fileId]);
+  }, [id]);
 
   const addSegment = () => {
     const lastSegment = segments[segments.length - 1];
@@ -98,7 +84,7 @@ export default function VideoDetail() {
     setSplitError("");
     setSplitResult([]);
     try {
-      const res = await fetch(`${API}/videos/${fileId}/split`, {
+      const res = await fetch(`${API}/videos/${encodeURIComponent(id)}/split`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ segments }),
@@ -109,7 +95,7 @@ export default function VideoDetail() {
       }
       const data = await res.json();
       setSplitResult(data.segment_urls);
-      const vRes = await fetch(`${API}/videos/${fileId}`);
+      const vRes = await fetch(`${API}/videos/${encodeURIComponent(id)}`);
       setVideo(await vRes.json());
     } catch (e: unknown) {
       setSplitError(e instanceof Error ? e.message : "Split failed");
@@ -181,7 +167,7 @@ export default function VideoDetail() {
             ← Back to list
           </Link>
           <Link
-            href={`/videos/${fileId}/edit`}
+            href={`/videos/${id}/edit`}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             ✎ Edit Metadata
@@ -240,7 +226,7 @@ export default function VideoDetail() {
         {/* Split Video Section */}
         <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 shadow-lg">
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <span className="text-2xl">✂️</span> Free Cut - Split Video
+            <span className="text-2xl">✂️</span>Split Video
           </h2>
 
           {splitError && (
