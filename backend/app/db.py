@@ -23,6 +23,5 @@ async def get_db():
         yield session
 
 async def init_db():
-    # create tables (for simple local/dev use)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
