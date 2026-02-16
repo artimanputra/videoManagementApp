@@ -15,7 +15,6 @@ class Video(Base):
     status = Column(String, nullable=False, default="Draft")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationship to segments - lazy load immediately
     segments = relationship(
         "VideoSegment", 
         back_populates="video", 
@@ -33,5 +32,4 @@ class VideoSegment(Base):
     segment_url = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationship back to video
     video = relationship("Video", back_populates="segments")

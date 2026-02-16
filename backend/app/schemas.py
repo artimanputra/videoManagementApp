@@ -1,8 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
-
-# pydantic v2 renamed `orm_mode` -> `from_attributes`. Detect and be compatible
 PYDANTIC_V2 = hasattr(BaseModel, "model_config")
 
 

@@ -1,158 +1,25 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete, func
 from uuid import uuid4
 from datetime import datetime
-import os
-
-from .db import get_db, init_db
-from .models import Video, VideoSegment
-from .schemas import VideoCreate, VideoOut
-from . import storage
-from .schemas import VideoUpdate, SplitRequest, SplitResult
-from sqlalchemy import select, update, func, delete
+from pathlib import Path
+from typing import List
 import tempfile
 import subprocess
-from fastapi import Query
-from typing import List
-from fastapi.responses import JSONResponse
-from pathlib import Path
+import os
+import shutil
+
+from .db import get_db
+from .models import Video, VideoSegment
+from .schemas import VideoOut, VideoUpdate, SplitRequest, SplitResult
+from . import storage
 
 app = FastAPI()
-
-@app.get("/videos/{file_id}", response_model=VideoOut)
-async def get_video(file_id: str, db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Video).where(Video.file_id == file_id))
-    video = res.scalars().first()
-    if not video:
-        raise HTTPException(status_code=404, detail="video not found")
-    return video
-
-
-@app.patch("/videos/{file_id}", response_model=VideoOut)
-async def update_video(file_id: str, payload: VideoUpdate, db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Video).where(Video.file_id == file_id))
-    video = res.scalars().first()
-    if not video:
-        raise HTTPException(status_code=404, detail="video not found")
-    for field, value in payload.dict(exclude_unset=True).items():
-        setattr(video, field, value)
-    db.add(video)
-    await db.commit()
-    await db.refresh(video)
-    return video
-
-
-@app.post("/videos/{file_id}/split", response_model=SplitResult)
-async def split_video(file_id: str, payload: SplitRequest, db: AsyncSession = Depends(get_db)):
-    # Fetch video
-    res = await db.execute(select(Video).where(Video.file_id == file_id))
-    video = res.scalars().first()
-    if not video:
-        raise HTTPException(status_code=404, detail="video not found")
-
-    # mark processing
-    video.status = "Processing"
-    await db.commit()
-    await db.refresh(video)
-
-    # Determine source key from video_url (for local, just strip /videos/ prefix)
-    src_key = video.video_url
-    if src_key.startswith("/videos/"):
-        src_key = src_key[len("/videos/"):]
-
-    segment_urls: List[str] = []
-    new_segments: List[VideoSegment] = []
-
-    # Download source file
-    with tempfile.TemporaryDirectory() as tmpdir:
-        local_src = Path(tmpdir) / "source"
-        try:
-            storage.download_to_file(src_key, str(local_src))
-        except Exception as exc:
-            video.status = "Failed"
-            await db.merge(video)
-            await db.commit()
-            raise HTTPException(status_code=500, detail=f"download failed: {exc}")
-
-        # For each segment, run ffmpeg to extract and upload
-        for idx, seg in enumerate(payload.segments):
-            out_path = Path(tmpdir) / f"segment_{idx}.mp4"
-            start = seg.start
-            end = seg.end
-            # ffmpeg command: -ss START -to END -i input -c copy
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-ss",
-                str(start),
-                "-to",
-                str(end),
-                "-i",
-                str(local_src),
-                "-c",
-                "copy",
-                str(out_path),
-            ]
-            try:
-                # run in threadpool to avoid blocking
-                await run_in_threadpool(subprocess.run, cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            except Exception as exc:
-                video.status = "Failed"
-                await db.merge(video)
-                await db.commit()
-                raise HTTPException(status_code=500, detail=f"ffmpeg failed: {exc}")
-
-            # upload segment (use file_id instead of numeric video_id)
-            seg_key = f"{file_id.split('.')[0]}_segment_{uuid4().hex}_seg{idx}.mp4"
-            try:
-                with open(out_path, "rb") as f:
-                    await run_in_threadpool(storage.upload_file_multipart, f, seg_key)
-            except Exception as exc:
-                video.status = "Failed"
-                await db.merge(video)
-                await db.commit()
-                raise HTTPException(status_code=500, detail=f"upload segment failed: {exc}")
-
-            segment_url = storage.get_public_url(seg_key)
-            segment_urls.append(segment_url)
-            
-            # Create new segment object (don't add to session yet)
-            video_segment = VideoSegment(
-                id=uuid4().hex,  # Use hex string for segment id
-                video_id=video.id,
-                start=start,
-                end=end,
-                segment_url=segment_url,
-            )
-            new_segments.append(video_segment)
-
-    # Delete old segments and add new ones in a single transaction
-    await db.execute(
-        delete(VideoSegment).where(VideoSegment.video_id == video.id)
-    )
-    
-    # Add all new segments
-    for seg in new_segments:
-        db.add(seg)
-    
-    # Update video status to Ready
-    video.status = "Ready"
-    await db.merge(video)
-    
-    # Commit everything at once
-    await db.commit()
-
-    return {"segment_urls": segment_urls}
-
-
-# Mount videos directory for serving video files
-# This must come AFTER all /videos/* API routes to avoid conflicts
-VIDEOS_DIR = Path(__file__).parent / "videos"
-VIDEOS_DIR.mkdir(exist_ok=True)
-app.mount("/videos", StaticFiles(directory=VIDEOS_DIR), name="videos")
 
 app.add_middleware(
     CORSMiddleware,
@@ -162,48 +29,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+MEDIA_DIR = Path(__file__).parent / "videos"
+MEDIA_DIR.mkdir(exist_ok=True)
 
-# Custom middleware to add CORS headers to ALL responses including static files
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-
-
-class CORSMiddlewareForStaticFiles(BaseHTTPMiddleware):
-    """Add CORS headers to all responses including static file responses."""
-    
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        # Add CORS headers to all responses including static files
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS, POST, PUT, PATCH, DELETE"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        return response
-
-
-# Add custom CORS middleware AFTER the main CORS middleware
-# This ensures CORS headers are added to ALL responses including static file responses
-app.add_middleware(CORSMiddlewareForStaticFiles)
-
-# IMPORTANT: API routes must be defined BEFORE the StaticFiles mount
-# to avoid StaticFiles catching API requests
-
-# API routes for videos
-
-@app.on_event("startup")
-async def on_startup():
-    await init_db()
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint to verify backend is running."""
-    return {
-        "status": "ok",
-        "videos_dir": str(VIDEOS_DIR),
-        "videos_dir_exists": VIDEOS_DIR.exists(),
-        "videos_count": len(list(VIDEOS_DIR.glob("*.*"))) if VIDEOS_DIR.exists() else 0
-    }
+app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 
 @app.post("/videos", response_model=VideoOut)
@@ -213,119 +42,183 @@ async def create_video(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Accepts a multipart upload and stores the file to local videos directory.
-    Starts with 'Uploading' status and transitions to 'Draft' when complete.
-    Automatically calculates video duration.
-    """
-    # prepare key
-    filename = os.path.basename(file.filename)
-    key = f"{uuid4().hex}_{filename}"
+    filename = f"{uuid4().hex}_{os.path.basename(file.filename)}"
+    path = await run_in_threadpool(storage.upload_file_multipart, file.file, filename)
 
-    # Local file path as URL
-    video_url = f"/videos/{key}"
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=nokey=1:noprint_wrappers=1",
+        path,
+    ]
 
-    # insert into DB with "Uploading" status
+    result = await run_in_threadpool(
+        subprocess.run,
+        cmd,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
     video = Video(
-        id=uuid4().hex,  # Use hex string for video id
-        file_id=key,  # Store unique file identifier
+        id=uuid4().hex,
+        file_id=filename,
         title=title,
         description=description,
-        video_url=video_url,
-        duration=None,  # Will be calculated
-        status="Uploading",
+        video_url=f"/media/{filename}",
+        duration=float(result.stdout.strip()),
+        status="Draft",
         created_at=datetime.utcnow(),
     )
+
     db.add(video)
     await db.commit()
     await db.refresh(video)
+    return video
 
-    # Save file to local videos directory
-    video_path = None
-    try:
-        video_path = await run_in_threadpool(storage.upload_file_multipart, file.file, key)
-    except Exception as exc:
-        video.status = "Failed"
-        await db.merge(video)
-        await db.commit()
-        raise HTTPException(status_code=500, detail=f"upload failed: {exc}")
 
-    # Calculate duration using ffprobe
-    duration = None
-    if video_path:
-        try:
-            cmd = [
-                "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1:noprint_wrappers=1",
-                video_path,
-            ]
-            result = await run_in_threadpool(
-                subprocess.run, 
-                cmd, 
-                check=True, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            duration = float(result.stdout.strip())
-        except Exception as e:
-            # If ffprobe fails, just continue without duration
-            print(f"Warning: Could not calculate duration: {e}")
+@app.get("/videos/{id}", response_model=VideoOut)
+async def get_video(id: str, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(Video).where(Video.id == id))
+    video = res.scalars().first()
+    if not video:
+        raise HTTPException(status_code=404)
+    return video
 
-    # Mark as Draft when upload is complete
-    video.status = "Draft"
-    video.duration = duration
-    await db.merge(video)
+
+@app.patch("/videos/{id}", response_model=VideoOut)
+async def update_video(id: str, payload: VideoUpdate, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(Video).where(Video.id == id))
+    video = res.scalars().first()
+    if not video:
+        raise HTTPException(status_code=404)
+
+    for k, v in payload.dict(exclude_unset=True).items():
+        setattr(video, k, v)
+
     await db.commit()
     await db.refresh(video)
-
     return video
+
+
+@app.post("/videos/{id}/split", response_model=SplitResult)
+async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(Video).where(Video.id == id))
+    video = res.scalars().first()
+    if not video:
+        raise HTTPException(status_code=404)
+
+    src_path = MEDIA_DIR / video.file_id
+    if not src_path.exists():
+        raise HTTPException(status_code=404)
+
+    video.status = "Processing"
+    await db.commit()
+
+    segment_urls: List[str] = []
+    new_segments: List[VideoSegment] = []
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for seg in payload.segments:
+            out_name = f"{uuid4().hex}.mp4"
+            out_tmp = Path(tmpdir) / out_name
+
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-ss", str(seg.start),
+                "-i", str(src_path),
+                "-t", str(seg.end - seg.start),
+                "-movflags", "faststart",
+                str(out_tmp),
+            ]
+
+            await run_in_threadpool(
+                subprocess.run,
+                cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            final_path = MEDIA_DIR / out_name
+            shutil.copy2(out_tmp, final_path)
+
+            url = f"/media/{out_name}"
+            segment_urls.append(url)
+
+            new_segments.append(
+                VideoSegment(
+                    id=uuid4().hex,
+                    video_id=video.id,
+                    start=seg.start,
+                    end=seg.end,
+                    segment_url=url,
+                )
+            )
+
+    for s in new_segments:
+        db.add(s)
+
+    video.status = "Ready"
+    await db.commit()
+
+    return {"segment_urls": segment_urls}
+
+
+@app.get("/media/segments/{id}")
+async def download_segment(id: str, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(VideoSegment).where(VideoSegment.id == id))
+    segment = res.scalars().first()
+    if not segment:
+        raise HTTPException(status_code=404)
+
+    filename = segment.segment_url.replace("/media/", "")
+    path = MEDIA_DIR / filename
+
+    if not path.exists():
+        raise HTTPException(status_code=404)
+
+    return FileResponse(
+        path=path,
+        media_type="video/mp4",
+        filename=filename,
+    )
 
 
 @app.get("/videos")
 async def list_videos(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    search: str | None = Query(None),
-    status: str | None = Query(None),
+    search: str | None = None,
+    status: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    List videos with pagination, search, and filtering.
-    
-    Query Parameters:
-    - page: Page number (default: 1)
-    - size: Items per page (default: 10, max: 100)
-    - search: Search by title (case-insensitive partial match)
-    - status: Filter by status (Draft, Uploading, Processing, Ready, Failed)
-    
-    Returns: {items, total, page, size, pages}
-    """
     stmt = select(Video)
-    
-    # Apply filters
+
     if search:
         stmt = stmt.where(Video.title.ilike(f"%{search}%"))
     if status:
         stmt = stmt.where(Video.status == status)
-    
-    # Get total count before pagination
-    total_res = await db.execute(select(func.count()).select_from(stmt.subquery()))
-    total = total_res.scalar_one()
-    
-    # Calculate total pages
-    total_pages = (total + size - 1) // size
-    
-    # Apply pagination and ordering
-    stmt = stmt.order_by(Video.created_at.desc()).offset((page - 1) * size).limit(size)
-    res = await db.execute(stmt)
-    items = res.scalars().all()
-    
+
+    total = (
+        await db.execute(select(func.count()).select_from(stmt.subquery()))
+    ).scalar_one()
+
+    pages = (total + size - 1) // size
+
+    res = await db.execute(
+        stmt.order_by(Video.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+    )
+
     return {
-        "items": items,
+        "items": res.scalars().all(),
         "total": total,
         "page": page,
         "size": size,
-        "pages": total_pages
+        "pages": pages,
     }
