@@ -1,20 +1,28 @@
-## Getting Started
+## Frontend- Getting Started
 
-First, run the backend python server:
+### 1) run the backend python server:
 
-Then Install the node module:
-NEXT_PUBLIC_API_URL : `http://exambleServer`
+### 2)  Install Dependencies
+Run the following command inside the frontend folder:
+```bash
+npm install
+```
 
+### 3)  Set Environment Variable
+Create a .env.local file in the frontend directory and add:
+```bash
+NEXT_PUBLIC_API_URL=http://exampleServer
+```
+Replace http://exampleServer with your actual backend server URL.
+
+### 4)  Start the Development Server
+After installing dependencies and setting up environment variables, run:
 ```bash
 npm run dev
 ```
-
-Add Envornment Variable for server route:
-
-
-Then start the frontend using:
+The app will be available at:
 ```bash
-npm run dev
+http://localhost:3000
 ```
 
 ## Application Pages
