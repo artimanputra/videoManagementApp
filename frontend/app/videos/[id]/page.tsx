@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
+import VideoTimeline from "@/app/components/timeLine";
 
 const API = process.env.NEXT_PUBLIC_API_URL ;
 
@@ -42,6 +43,9 @@ export default function VideoDetail() {
   const [error, setError] = useState("");
   const [splitError, setSplitError] = useState("");
   const [currentTime, setCurrentTime] = useState(0);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const [backendStatus, setBackendStatus] = useState<any>(null);
 
   useEffect(() => {
@@ -116,6 +120,11 @@ export default function VideoDetail() {
     // Extract filename from URL
     const filename = video.video_url.split("/").pop() || "";
     return filename;
+  };
+
+  const handleTimeUpdate = () => {
+     if (!isVideoReady || !videoRef.current) return;
+      setCurrentTime(videoRef.current.currentTime);
   };
 
   if (loading) {
@@ -234,9 +243,24 @@ export default function VideoDetail() {
               {splitError}
             </div>
           )}
+          <video
+            ref={videoRef}
+            src={`${API}${video.video_url}`}
+            controls
+            className="w-full rounded-lg mb-6"  
+            onLoadedMetadata={() => setIsVideoReady(true)}
+            
+  onTimeUpdate={handleTimeUpdate}
+          />
 
+          
+<VideoTimeline
+  duration={video.duration!}
+  videoRef={videoRef}
+  onSegmentsChange={setSegments}
+/>
           {/* Segments */}
-          <div className="space-y-6 mb-6">
+          {/* <div className="space-y-6 mb-6">
             {segments.map((seg, idx) => (
               <div key={idx} className="bg-slate-700 rounded-lg p-6 border border-slate-600">
                 <div className="flex items-center justify-between mb-6">
@@ -251,9 +275,8 @@ export default function VideoDetail() {
                   )}
                 </div>
 
-                {/* Timeline Display */}
                 <div className="bg-slate-900 rounded-lg p-6 mb-6">
-                  {/* Top Labels */}
+                 
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-center flex-1">
                       <p className="text-gray-500 text-xs uppercase">START</p>
@@ -271,12 +294,10 @@ export default function VideoDetail() {
                     </div>
                   </div>
 
-                  {/* Timeline Slider */}
                   <div className="relative mt-6 h-10">
-                    {/* Background track */}
+                 
                     <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-600 rounded -translate-y-1/2 pointer-events-none" />
 
-                    {/* Active segment */}
                     <div
                       className="absolute top-1/2 h-1 bg-blue-500 rounded -translate-y-1/2 pointer-events-none"
                       style={{
@@ -284,8 +305,6 @@ export default function VideoDetail() {
                         width: `${((seg.end - seg.start) / (video.duration || 1)) * 100}%`,
                       }}
                     />
-
-                    {/* START handle */}
                     <input
                       type="range"
                       min={0}
@@ -300,7 +319,6 @@ export default function VideoDetail() {
                       style={{ zIndex: seg.start > seg.end - 1 ? 5 : 6 }}
                     />
 
-                    {/* END handle */}
                     <input
                       type="range"
                       min={0}
@@ -315,8 +333,6 @@ export default function VideoDetail() {
                       style={{ zIndex: 5 }}
                     />
                   </div>
-
-                  {/* Time inputs below timeline */}
                   <div className="grid grid-cols-3 gap-4 mt-8">
                     <div>
                       <label className="text-gray-400 text-xs mb-2 block">START TIME</label>
@@ -356,7 +372,7 @@ export default function VideoDetail() {
                 </div>
               </div>
             ))}
-          </div>
+          </div> */}
 
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
