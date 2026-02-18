@@ -1,234 +1,236 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import SkeletonRow from "./components/SkeletonRow";
+import EmptyState from "./components/EmptyState";
 
-const API = process.env.NEXT_PUBLIC_API_URL ;
+const API = process.env.NEXT_PUBLIC_API_URL;
 
 interface Video {
   id: number;
-  file_id: string;
   title: string;
   description: string | null;
-  video_url: string;
-  duration: number | null;
   status: string;
-  created_at: string;
 }
 
 interface ListResponse {
   items: Video[];
-  total: number;
-  page: number;
-  size: number;
   pages: number;
 }
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All Status" },
-  { value: "Uploading", label: "Uploading" },
-  { value: "Draft", label: "Draft" },
-  { value: "Processing", label: "Processing" },
-  { value: "Ready", label: "Ready" },
-  { value: "Failed", label: "Failed" },
-];
+const STATUS_OPTIONS = ["", "Uploading", "Draft", "Processing", "Ready", "Failed"];
 
-export default function Home() {
+export default function Dashboard() {
+  const router = useRouter();
+
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
-  const [size, setSize] = useState(10);
-  const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(0);
 
-  const fetchVideos = async (newPage: number = 1) => {
+  const logout = () => {
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
+
+  const fetchVideos = async (newPage = 1) => {
     setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", newPage.toString());
-      params.set("size", size.toString());
-      if (search) params.set("search", search);
-      if (status) params.set("status", status);
-      
-      const res = await fetch(`${API}/videos?${params}`);
-      const data: ListResponse = await res.json();
-      setVideos(data.items);
-      setTotal(data.total);
-      setPages(data.pages);
-      setPage(newPage);
-    } catch (error) {
-      console.error("Failed to fetch videos", error);
-    } finally {
-      setLoading(false);
-    }
+
+    const params = new URLSearchParams({
+      page: newPage.toString(),
+      size: "10",
+    });
+    if (search) params.set("search", search);
+    if (status) params.set("status", status);
+
+    const res = await fetch(`${API}/videos?${params}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    const data: ListResponse = await res.json();
+    setVideos(data.items);
+    setPages(data.pages);
+    setPage(newPage);
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchVideos(1);
+    if (!localStorage.getItem("token")) {
+      router.push("/login");
+      return;
+    }
+    fetchVideos();
   }, []);
 
-  const handleSearch = () => {
-    fetchVideos(1);
-  };
-
-  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newStatus = e.target.value;
-    setStatus(newStatus);
-    setPage(1);
-    
-    // Fetch with the new status value
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", "1");
-      params.set("size", size.toString());
-      if (search) params.set("search", search);
-      if (newStatus) params.set("status", newStatus);
-      
-      const res = await fetch(`${API}/videos?${params}`);
-      const data: ListResponse = await res.json();
-      setVideos(data.items);
-      setTotal(data.total);
-      setPages(data.pages);
-    } catch (error) {
-      console.error("Failed to fetch videos", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (page > 1) {
-      fetchVideos(page - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (page < pages) {
-      fetchVideos(page + 1);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 p-8 bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-white mt-4 mb-6">Videos</h1>
+    <div className="flex min-h-screen bg-[#0b0b0b] text-white">
+      {/* Sidebar */}
+      <aside className="w-64 bg-[#0f0f0f] border-r border-[#222] p-6 flex flex-col">
+        <h2 className="text-xl font-bold mb-8">
+          🎬 Video Manager
+        </h2>
+
+        <nav className="flex-1 space-y-4">
+          <Link
+            href="/"
+            className="block px-3 py-2 rounded bg-[#1a1a1a] text-md font-semibold"
+          >
+            Dashboard
+          </Link>
           <Link
             href="/videos/create"
-             className="block p-3 hover:bg-gray-100 hover:text-black rounded transition">
+            className="block px-3 py-2 rounded  text-md font-semibold  bg-red-500 hover:bg-red-700 transition"
+          >
             + New Video
           </Link>
-        </div>
+        </nav>
 
-        {/* Search and Filters */}
-        <div className="space-y-4 mb-6">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Search by title..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            <button
-              onClick={handleSearch}
-              className="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900"
-            >
-              Search
-            </button>
-          </div>
+        <button
+          onClick={logout}
+          className="mt-auto px-3 py-2 rounded bg-[#a90d0d] hover:bg-[#2a2a2a] text-sm"
+        >
+          Logout
+        </button>
+      </aside>
 
-          <div>
-            <label className="block text-sm font-medium text-white  mb-1">
-              Filter by Status
-            </label>
+      {/* Main */}
+      <main className="flex-1 p-8">
+        {/* Filters */}
+        <div className="bg-[#141414] border border-[#222] rounded-xl p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">            
             <select
               value={status}
-              onChange={handleStatusChange}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                fetchVideos(1);
+              }}
+              className="bg-[#0f0f0f] border border-[#2a2a2a] rounded px-3 py-2 text-sm focus:border-red-500 outline-none"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s} className="focus:border-red-500">
+                  {s || "All Status"}
                 </option>
               ))}
             </select>
+
+            <input
+              placeholder="Search by title..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-[#0f0f0f] border border-[#2a2a2a] rounded px-3 py-2 text-sm focus:border-red-500 outline-none"
+            />
+
+            <button
+              onClick={() => fetchVideos(1)}
+              className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 rounded px-4 py-2 text-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+                Search
+            </button>
           </div>
         </div>
 
-        {/* Results Info */}
-        {total > 0 && (
-          <p className="text-sm text-gray-600 mb-4">
-            Showing {(page - 1) * size + 1} to {Math.min(page * size, total)} of {total} videos
-          </p>
+        {/* List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {loading && (
+          Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonRow key={i} />
+          ))
         )}
 
-        {/* Video List */}
-        {loading ? (
-          <p className="text-gray-500">Loading...</p>
-        ) : videos.length === 0 ? (
-          <p className="text-gray-500">No videos found.</p>
-        ) : (
-          <>
-            <ul className="space-y-3 mb-6">
-              {videos.map((v) => (
-                <li key={v.id} className="bg-violet-950">
-                  <Link
-                    href={`/videos/${encodeURIComponent(v.id)}`}
-                     className="block p-3 hover:bg-gray-100 rounded transition" >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">{v.title}</span>
-                      <span
-                        className={`text-xs px-2 py-1 rounded font-semibold ${
-                          v.status === "Ready"
-                            ? "bg-green-100 text-green-700"
-                            : v.status === "Processing"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : v.status === "Failed"
-                            ? "bg-red-100 text-red-700"
-                            : v.status === "Uploading"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {v.status}
-                      </span>
-                    </div>
-                    {v.description && (
-                      <p className="text-sm text-gray-500 mt-1">{v.description}</p>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+        {!loading && videos.length === 0 && (
+          <EmptyState hasFilters={!!search || !!status} />
+        )}
 
-            {pages > 1 && (
-              <div className="flex items-center justify-between pt-4">
-                <button
-                  onClick={handlePrevPage}
-                  disabled={page === 1}
-                  className="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-gray-600">
-                  Page {page} of {pages}
-                </span>
-                <button
-                  onClick={handleNextPage}
-                  disabled={page === pages}
-                  className="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next →
-                </button>
-              </div>
+        {!loading && videos.map((v) => (
+        <Link
+          key={v.id}
+          href={`/videos/${v.id}`}
+          onClick={() => setLoading(true)}
+          className="group bg-[#141414] border border-[#222] rounded-xl overflow-hidden
+                    hover:border-red-500 transition shadow-lg"
+        >
+          {/* Thumbnail */}
+          <div className="relative aspect-video bg-black">
+            <video
+              src={`${API}${(v as any).video_url}`}
+              muted
+              preload="metadata"
+              className="w-full h-full object-cover opacity-90 group-hover:opacity-100"
+            />
+
+            {/* Status badge */}
+            <span
+              className={`absolute top-2 right-2 text-xs px-3 py-1 rounded-full backdrop-blur ${
+                v.status === "Ready"
+                  ? "bg-green-900/80 text-green-300"
+                  : v.status === "Processing"
+                  ? "bg-yellow-900/80 text-yellow-300"
+                  : v.status === "Failed"
+                  ? "bg-red-900/80 text-red-300"
+                  : "bg-gray-800/80 text-gray-300"
+              }`}
+            >
+              {v.status}
+            </span>
+          </div>
+
+          {/* Content */}
+          <div className="p-4 space-y-2">
+            <h3 className="font-semibold text-sm truncate">
+              {v.title}
+            </h3>
+
+            {v.description && (
+              <p className="text-xs text-gray-400 line-clamp-2">
+                {v.description}
+              </p>
             )}
-          </>
-        )}
+
+            {/* Footer actions */}
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[11px] text-gray-500">
+                Click to open
+              </span>
+
+              <span className="text-red-400 text-xs group-hover:translate-x-1 transition">
+                →
+              </span>
+            </div>
+          </div>
+        </Link>
+))}
+
       </div>
+        {/* Pagination */}
+        {pages > 1 && (
+          <div className="flex justify-between mt-8">
+            <button
+              disabled={page === 1}
+              onClick={() => fetchVideos(page - 1)}
+              className="px-4 py-2 rounded bg-[#1a1a1a] disabled:opacity-50"
+            >
+              ← Prev
+            </button>
+            <button
+              disabled={page === pages}
+              onClick={() => fetchVideos(page + 1)}
+              className="px-4 py-2 rounded bg-[#1a1a1a] disabled:opacity-50"
+            >
+              Next →
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
+

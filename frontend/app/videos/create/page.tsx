@@ -34,6 +34,9 @@ export default function CreateVideoPage() {
       setProcessingStatus("Uploading video...");
       const res = await fetch(`${API}/videos`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
         body: formData,
       });
       if (!res.ok) {
@@ -55,77 +58,86 @@ export default function CreateVideoPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-8 bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="max-w-lg mx-auto">
-        <Link href="/" className="text-blue-600 hover:underline text-sm">
-          &larr; Back to list
-        </Link>
-        <h1 className="text-3xl font-bold text-white mt-4 mb-6">
+return (
+  <div className="min-h-screen bg-[#0b0b0b] p-8">
+    <div className="max-w-xl mx-auto space-y-6">
+
+      <Link href="/" className="text-sm text-white/50 hover:text-white">
+        ← Back to dashboard
+      </Link>
+
+      <div>
+        <h1 className="text-2xl font-semibold text-white">
           Create Video
         </h1>
-
-        {error && (
-          <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        {processingStatus && (
-          <div className="bg-blue-100 text-blue-700 p-3 rounded mb-4 text-sm flex items-center">
-            <span className="inline-block animate-spin mr-2">⏳</span>
-            {processingStatus}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}  className="space-y-4 bg-slate-800/80 backdrop-blur border border-slate-700 p-6 rounded-lg shadow-lg">
-          <div>
-            <label className="block text-sm font-medium text-white  mb-1">
-              Title *
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={submitting}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-white  mb-1">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-              disabled={submitting}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              Video File *
-            </label>
-            <input
-              type="file"
-              accept="video/*"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={submitting}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 text-sm disabled:opacity-50"
-          >
-            {submitting ? "Uploading..." : "Create Video"}
-          </button>
-        </form>
+        <p className="text-sm text-white/40">
+          Upload and start processing a new video
+        </p>
       </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      {processingStatus && (
+        <div className="bg-blue-500/10 border border-blue-500/30 text-blue-300 p-3 rounded-lg text-sm flex items-center gap-2">
+          <span className="animate-spin">⏳</span>
+          {processingStatus}
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[#111] border border-white/10 rounded-xl p-6 space-y-5"
+      >
+        <div>
+          <label className="text-xs uppercase text-white/40">Title</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={submitting}
+            className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs uppercase text-white/40">
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            disabled={submitting}
+            className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs uppercase text-white/40">
+            Video File
+          </label>
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            disabled={submitting}
+            className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+          />
+        </div>
+
+        <button
+          disabled={submitting}
+          className="w-full bg-blue-600 hover:bg-blue-700 transition rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+        >
+          {submitting ? "Uploading…" : "Create Video"}
+        </button>
+      </form>
     </div>
-  );
+  </div>
+);
+
+
 }

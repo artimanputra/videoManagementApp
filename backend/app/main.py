@@ -15,9 +15,11 @@ import os
 import shutil
 
 from .db import get_db
-from .models import Video, VideoSegment
+from .deps import get_current_user
+from .models import Video, VideoSegment, User
 from .schemas import VideoOut, VideoUpdate, SplitRequest, SplitResult
 from . import storage
+from .auth import router as auth_router
 
 app = FastAPI()
 
@@ -32,6 +34,10 @@ app.add_middleware(
 MEDIA_DIR = Path(__file__).parent / "videos"
 MEDIA_DIR.mkdir(exist_ok=True)
 
+
+app.include_router(auth_router)
+
+
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 
@@ -41,6 +47,7 @@ async def create_video(
     description: str | None = Form(None),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     filename = f"{uuid4().hex}_{os.path.basename(file.filename)}"
     path = await run_in_threadpool(storage.upload_file_multipart, file.file, filename)
@@ -64,6 +71,7 @@ async def create_video(
 
     video = Video(
         id=uuid4().hex,
+        user_id=user.id, 
         file_id=filename,
         title=title,
         description=description,
@@ -80,8 +88,8 @@ async def create_video(
 
 
 @app.get("/videos/{id}", response_model=VideoOut)
-async def get_video(id: str, db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Video).where(Video.id == id))
+async def get_video(id: str, db: AsyncSession = Depends(get_db),user: User = Depends(get_current_user),):
+    res = await db.execute(select(Video).where(Video.id == id,Video.user_id == user.id, ))
     video = res.scalars().first()
     if not video:
         raise HTTPException(status_code=404)
@@ -195,8 +203,9 @@ async def list_videos(
     search: str | None = None,
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    stmt = select(Video)
+    stmt = select(Video).where(Video.user_id == user.id)
 
     if search:
         stmt = stmt.where(Video.title.ilike(f"%{search}%"))
@@ -222,3 +231,43 @@ async def list_videos(
         "size": size,
         "pages": pages,
     }
+
+@app.delete("/videos/{id}", status_code=204)
+async def delete_video(
+    id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Get video owned by user
+    res = await db.execute(
+        select(Video).where(
+            Video.id == id,
+            Video.user_id == user.id,
+        )
+    )
+    video = res.scalars().first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    # Delete main video file
+    video_path = MEDIA_DIR / video.file_id
+    if video_path.exists():
+        video_path.unlink()
+
+    # Get and delete segments
+    seg_res = await db.execute(
+        select(VideoSegment).where(VideoSegment.video_id == video.id)
+    )
+    segments = seg_res.scalars().all()
+
+    for seg in segments:
+        seg_file = MEDIA_DIR / seg.segment_url.replace("/media/", "")
+        if seg_file.exists():
+            seg_file.unlink()
+        await db.delete(seg)
+
+    # Delete video record
+    await db.delete(video)
+    await db.commit()
+
+    return

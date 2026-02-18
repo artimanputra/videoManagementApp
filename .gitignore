@@ -1,0 +1,225 @@
+# ===========================================
+# COMMON DEVELOPMENT IGNORES
+# ===========================================
+
+# -------------------- OS --------------------
+# macOS
+.DS_Store
+AppleDouble
+LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.Directory
+.Trash-*
+.nfs*
+
+# -------------------- IDEs --------------------
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# JetBrains (IntelliJ, WebStorm, etc)
+.idea/
+*.iml
+*.iws
+out/
+.idea_modules/
+
+# Sublime Text
+*.tmlanguage.cache
+*.plist.user
+*.sublime-workspace
+*.sublime-project
+sftp-config.json
+Package Control.last-run
+Package Control.ca-list
+Package Control.ca-bundle
+Package Control.system-ca-bundle
+Package Control.ca-bundle
+Package Control.user-ca-bundle
+Package Control.last-updated
+Package Control.system-ca-bundle
+ini-packages.list
+
+# Vim
+[._]*.s[a-v][a-z]
+!*.svg
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+AutoSaveVimBackup_
+autosave.vim
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# -------------------- SENSITIVE DATA --------------------
+# Environment variables - NEVER commit actual env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+credentials/
+*.secret
+
+# -------------------- BUILD OUTPUTS --------------------
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node/Frontend
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+.next/
+out/
+/build
+/.next/
+/out/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Rust
+target/
+Cargo.lock
+
+# Java
+target/
+*.jar
+*.war
+*.ear
+
+# -------------------- TESTING & COVERAGE --------------------
+# Python
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Node/Frontend
+/coverage
+.nyc_output/
+
+# Jest
+coverage/
+coverage-junit/
+
+# -------------------- LOGS & TEMP FILES --------------------
+*.log
+logs/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+.temp/
+tmp/
+temp/
+
+# Editor directories and files
+*.sublime-*
+
+# -------------------- DOCKER & CONTAINERS --------------------
+.dockerignore
+docker-compose.override.yml
+
+# Docker volumes
+# volumes:
+#   db-data:
+
+# -------------------- DATABASE --------------------
+# Common database files
+*.db
+*.sqlite
+*.sqlite3
+*.mdb
+*.accdb
+
+# -------------------- CACHE --------------------
+# General caches
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.next/
+.DS_Store

@@ -35,7 +35,11 @@ export default function EditVideoPage() {
   useEffect(() => {
     const fetchVideo = async () => {
       try {
-        const res = await fetch(`${API}/videos/${id}`);
+        const res = await fetch(`${API}/videos/${id}`,{
+          headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        });
         if (!res.ok) throw new Error("Failed to load video");
         const data: Video = await res.json();
         setVideo(data);
@@ -51,6 +55,29 @@ export default function EditVideoPage() {
 
     fetchVideo();
   }, [id]);
+
+  
+const handleDelete = async () => {
+  const confirmed = confirm(
+    "Are you sure? This will permanently delete the video."
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${API}/videos/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (!res.ok) throw new Error("Delete failed");
+
+    router.push("/"); // back to list
+  } catch (err) {
+    alert("Failed to delete video");
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,133 +123,144 @@ export default function EditVideoPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen p-8">
-        <div className="max-w-lg mx-auto">
-          <p className="text-gray-500">Loading video...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!video) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-lg mx-auto">
-          <p className="text-red-600">Video not found</p>
-          <Link href="/" className="text-blue-600 hover:underline text-sm mt-4">
-            Back to list
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+ if (loading) {
   return (
-    <div className="min-h-screen bg-gray-50 p-8 bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="max-w-lg mx-auto">
-        <Link
-          href={`/videos/${id}`}
-        className="text-blue-400 hover:text-blue-300 text-sm"
-        >
-          &larr; Back to video
-        </Link>
-
-        <h1 className="text-3xl font-bold text-white mt-4 mb-6">
-          Edit Video
-        </h1>
-
-        {error && (
-          <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-100 text-green-700 p-3 rounded mb-4 text-sm flex items-center">
-            <span className="mr-2">✓</span>
-            {success}
-          </div>
-        )}
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 bg-slate-800/80 backdrop-blur border border-slate-700 p-6 rounded-lg shadow-lg"
-        >
-    <div>
-            <label className="block text-sm font-medium text-white  mb-1">
-              Title *
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={submitting}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={4}
-              disabled={submitting}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              Status
-            </label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={submitting}
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Current status: <span className="font-semibold">{video.status}</span>
-            </p>
-          </div>
-
-          <div className="flex gap-2 pt-4">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 flex-1"
-            >
-              {submitting ? "Saving..." : "Save Changes"}
-            </button>
-            <Link
-              href={`/videos/${id}`}
-            className="bg-slate-600 hover:bg-slate-500 text-white px-6 py-2 rounded-lg text-sm flex items-center justify-center"
-          >
-              Cancel
-            </Link>
-          </div>
-        </form>
-
-        <div className="mt-6 bg-blue-50 p-4 rounded border border-blue-200 text-sm text-blue-800">
-          <p className="font-medium mb-2">Video Info</p>
-          <p>ID: <span className="font-mono">{video.id}</span></p>
-          <p>URL: <span className="font-mono text-xs">{video.video_url}</span></p>
-          {video.duration && <p>Duration: {video.duration}s</p>}
-          <p>Created: {new Date(video.created_at).toLocaleString()}</p>
-        </div>
+    <div className="min-h-screen bg-[#0b0b0b] flex items-center justify-center">
+      <div className="w-full max-w-lg space-y-4 animate-pulse">
+        <div className="h-4 w-32 bg-white/10 rounded" />
+        <div className="h-8 w-64 bg-white/15 rounded" />
+        <div className="h-48 bg-white/5 rounded-xl border border-white/10" />
       </div>
     </div>
   );
+}
+
+
+  if (!video) {
+  return (
+    <div className="min-h-screen bg-[#0b0b0b] flex items-center justify-center">
+      <div className="bg-[#141414] border border-red-500/30 rounded-xl p-8 text-center">
+        <p className="text-red-400 font-semibold mb-4">Video not found</p>
+        <Link href="/" className="text-sm text-white/60 hover:text-white">
+          ← Back to dashboard
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+
+ return (
+  <div className="min-h-screen bg-[#0b0b0b] p-8">
+    <div className="max-w-xl mx-auto space-y-6">
+
+      <Link
+        href={`/videos/${id}`}
+        className="text-sm text-white/50 hover:text-white transition"
+      >
+        ← Back to video
+      </Link>
+
+      <div>
+        <h1 className="text-2xl font-semibold text-white tracking-tight">
+          Edit Video
+        </h1>
+        <p className="text-sm text-white/40">
+          Update metadata and publishing status
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-lg text-sm">
+          ✓ {success}
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[#111] border border-white/10 rounded-xl p-6 space-y-5"
+      >
+        {/* Title */}
+        <div>
+          <label className="text-xs uppercase tracking-wide text-white/40">
+            Title
+          </label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={submitting}
+            className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="text-xs uppercase tracking-wide text-white/40">
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            disabled={submitting}
+            rows={4}
+            className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+
+        {/* Status */}
+        <div>
+          <label className="text-xs uppercase tracking-wide text-white/40">
+            Status
+          </label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            disabled={submitting}
+            className="mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt}>{opt}</option>
+            ))}
+          </select>
+
+          <p className="text-xs text-white/40 mt-1">
+            Current: <span className="text-white">{video.status}</span>
+          </p>
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            disabled={submitting}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 transition rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {submitting ? "Saving…" : "Save"}
+          </button>
+
+          <Link
+            href={`/videos/${id}`}
+            className="flex-1 bg-white/10 hover:bg-white/15 transition rounded-lg py-2 text-sm text-center"
+          >
+            Cancel
+          </Link> 
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="bg-red-600/80 hover:bg-red-600 
+                      text-white px-4 py-2 rounded-lg text-sm
+                      transition"
+          >
+            Delete Video
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+);
+
 }

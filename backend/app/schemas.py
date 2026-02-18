@@ -1,8 +1,15 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict,EmailStr
 from typing import Optional, List
 from datetime import datetime
 PYDANTIC_V2 = hasattr(BaseModel, "model_config")
 
+
+
+class SignupResponse(BaseModel):
+    id: str
+    email: str
+    access_token: str
+    token_type: str = "bearer"
 
 class SegmentOut(BaseModel):
     id: str
@@ -59,3 +66,21 @@ class SplitRequest(BaseModel):
 
 class SplitResult(BaseModel):
     segment_urls: list[str]
+
+# for user management
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserOut(BaseModel):
+    id: str
+    email: EmailStr
+
+    class Config:
+        from_attributes = True
