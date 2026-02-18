@@ -167,6 +167,9 @@ target/
 .coverage
 htmlcov/
 .tox/
+.venv/
+venv/
+backend/.venv/
 .hypothesis/
 *.cover
 .hypothesis/
