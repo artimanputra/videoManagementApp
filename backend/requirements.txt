@@ -20,3 +20,5 @@ python-jose[cryptography]
 pydantic[email]
 passlib==1.7.4
 bcrypt==3.2.2
+boto3
+aioboto3

@@ -14,6 +14,7 @@ import subprocess
 import os
 import shutil
 
+from . import storage_r2  # instead of storage for R2
 from .db import get_db
 from .deps import get_current_user
 from .models import Video, VideoSegment, User
@@ -38,8 +39,7 @@ MEDIA_DIR.mkdir(exist_ok=True)
 app.include_router(auth_router)
 
 
-app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
-
+# app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 @app.post("/videos", response_model=VideoOut)
 async def create_video(
@@ -50,14 +50,24 @@ async def create_video(
     user: User = Depends(get_current_user),
 ):
     filename = f"{uuid4().hex}_{os.path.basename(file.filename)}"
-    path = await run_in_threadpool(storage.upload_file_multipart, file.file, filename)
 
+    # Upload to R2
+    video_url = await storage_r2.upload_file_to_r2(file, filename)
+
+    # Save locally only to get duration
+    MEDIA_DIR.mkdir(exist_ok=True)
+    temp_path = MEDIA_DIR / filename
+    file.file.seek(0)
+    with open(temp_path, "wb") as f:
+        f.write(await file.read())
+
+    # ffprobe to get duration
     cmd = [
         "ffprobe",
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=nokey=1:noprint_wrappers=1",
-        path,
+        str(temp_path),
     ]
 
     result = await run_in_threadpool(
@@ -69,13 +79,15 @@ async def create_video(
         text=True,
     )
 
+    temp_path.unlink(missing_ok=True)
+
     video = Video(
         id=uuid4().hex,
-        user_id=user.id, 
+        user_id=user.id,
         file_id=filename,
         title=title,
         description=description,
-        video_url=f"/media/{filename}",
+        video_url=video_url,  # ✅ R2 URL
         duration=float(result.stdout.strip()),
         status="Draft",
         created_at=datetime.utcnow(),
@@ -88,12 +100,19 @@ async def create_video(
 
 
 @app.get("/videos/{id}", response_model=VideoOut)
-async def get_video(id: str, db: AsyncSession = Depends(get_db),user: User = Depends(get_current_user),):
-    res = await db.execute(select(Video).where(Video.id == id,Video.user_id == user.id, ))
+async def get_video(id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    res = await db.execute(select(Video).where(Video.id == id, Video.user_id == user.id))
     video = res.scalars().first()
     if not video:
         raise HTTPException(status_code=404)
+
+    video.video_url = await storage_r2.get_signed_url(video.file_id)
+
+    for seg in video.segments:
+        seg.segment_url = await storage_r2.get_signed_url(seg.segment_url.replace("/media/", ""))
+
     return video
+
 
 
 @app.patch("/videos/{id}", response_model=VideoOut)
@@ -110,23 +129,34 @@ async def update_video(id: str, payload: VideoUpdate, db: AsyncSession = Depends
     await db.refresh(video)
     return video
 
-
 @app.post("/videos/{id}/split", response_model=SplitResult)
 async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends(get_db)):
+    # Fetch video from DB
     res = await db.execute(select(Video).where(Video.id == id))
     video = res.scalars().first()
     if not video:
-        raise HTTPException(status_code=404)
+        raise HTTPException(status_code=404, detail="Video not found")
 
-    src_path = MEDIA_DIR / video.file_id
-    if not src_path.exists():
-        raise HTTPException(status_code=404)
-
+    # Mark video as processing
     video.status = "Processing"
     await db.commit()
 
     segment_urls: List[str] = []
     new_segments: List[VideoSegment] = []
+
+    source_url = await storage_r2.get_signed_url(video.file_id)
+
+    import aiohttp
+    import tempfile
+    import shutil
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(source_url) as resp:
+            if resp.status != 200:
+                raise HTTPException(status_code=404, detail="Could not fetch video from R2")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
+                tmp_path = Path(tmp_file.name)
+                tmp_file.write(await resp.content.read())
 
     with tempfile.TemporaryDirectory() as tmpdir:
         for seg in payload.segments:
@@ -137,7 +167,7 @@ async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends
                 "ffmpeg",
                 "-y",
                 "-ss", str(seg.start),
-                "-i", str(src_path),
+                "-i", str(tmp_path),
                 "-t", str(seg.end - seg.start),
                 "-movflags", "faststart",
                 str(out_tmp),
@@ -151,11 +181,10 @@ async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends
                 stderr=subprocess.PIPE,
             )
 
-            final_path = MEDIA_DIR / out_name
-            shutil.copy2(out_tmp, final_path)
+            with open(out_tmp, "rb") as segment_file:
+                segment_url = await storage_r2.upload_file_to_r2(segment_file, out_name)
 
-            url = f"/media/{out_name}"
-            segment_urls.append(url)
+            segment_urls.append(segment_url)
 
             new_segments.append(
                 VideoSegment(
@@ -163,9 +192,11 @@ async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends
                     video_id=video.id,
                     start=seg.start,
                     end=seg.end,
-                    segment_url=url,
+                    segment_url=segment_url,
                 )
             )
+
+    tmp_path.unlink(missing_ok=True)
 
     for s in new_segments:
         db.add(s)
@@ -178,22 +209,16 @@ async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends
 
 @app.get("/media/segments/{id}")
 async def download_segment(id: str, db: AsyncSession = Depends(get_db)):
+
     res = await db.execute(select(VideoSegment).where(VideoSegment.id == id))
     segment = res.scalars().first()
     if not segment:
         raise HTTPException(status_code=404)
 
     filename = segment.segment_url.replace("/media/", "")
-    path = MEDIA_DIR / filename
+    signed_url = await storage_r2.get_signed_url(filename)
 
-    if not path.exists():
-        raise HTTPException(status_code=404)
-
-    return FileResponse(
-        path=path,
-        media_type="video/mp4",
-        filename=filename,
-    )
+    return {"url": signed_url}
 
 
 @app.get("/videos")
@@ -206,26 +231,25 @@ async def list_videos(
     user: User = Depends(get_current_user),
 ):
     stmt = select(Video).where(Video.user_id == user.id)
-
     if search:
         stmt = stmt.where(Video.title.ilike(f"%{search}%"))
     if status:
         stmt = stmt.where(Video.status == status)
 
-    total = (
-        await db.execute(select(func.count()).select_from(stmt.subquery()))
-    ).scalar_one()
-
+    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
     pages = (total + size - 1) // size
 
-    res = await db.execute(
-        stmt.order_by(Video.created_at.desc())
-        .offset((page - 1) * size)
-        .limit(size)
-    )
+    res = await db.execute(stmt.order_by(Video.created_at.desc()).offset((page - 1) * size).limit(size))
+    videos = res.scalars().all()
+
+    # Generate signed URLs
+    for video in videos:
+        video.video_url = await storage_r2.get_signed_url(video.file_id)
+        for seg in video.segments:
+            seg.segment_url = await storage_r2.get_signed_url(seg.segment_url.replace("/media/", ""))
 
     return {
-        "items": res.scalars().all(),
+        "items": videos,
         "total": total,
         "page": page,
         "size": size,

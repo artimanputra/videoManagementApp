@@ -122,12 +122,7 @@ function SavedSegmentGroup({
               onClick={async (e) => {
                 e.stopPropagation();
 
-                const res = await fetch(`${apiBase}${seg.segment_url}`, {
-                  headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                  },
-                });
-
+                const res = await fetch(seg.segment_url)
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
 

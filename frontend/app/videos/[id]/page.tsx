@@ -220,7 +220,7 @@ export default function VideoEditorPage() {
         />
 
         <PreviewPanel
-          videoSrc={`${API}${video.video_url}`}
+          videoSrc={video.video_url}
           videoRef={videoRef}
           onVideoReady={() => setIsVideoReady(true)}
           currentSegment={currentSegment}

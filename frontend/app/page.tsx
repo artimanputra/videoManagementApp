@@ -161,7 +161,7 @@ export default function Dashboard() {
           {/* Thumbnail */}
           <div className="relative aspect-video bg-black">
             <video
-              src={`${API}${(v as any).video_url}`}
+              src={(v as any).video_url}
               muted
               preload="metadata"
               className="w-full h-full object-cover opacity-90 group-hover:opacity-100"

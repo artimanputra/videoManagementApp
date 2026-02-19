@@ -45,7 +45,7 @@ export default function MediaPanel({ video, apiBase }: MediaPanelProps) {
         <div className="border-2 border-red-500/60 rounded-lg overflow-hidden bg-black/30">
           <div className="aspect-video relative bg-black">
             <video
-              src={`${apiBase}${video.video_url}`}
+              src={`${video.video_url}`}
               className="w-full h-full object-cover opacity-80"
               muted
             />
