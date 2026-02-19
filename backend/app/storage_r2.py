@@ -1,53 +1,60 @@
+import boto3
 import os
-from botocore.client import Config
-from fastapi import UploadFile
-from typing import Union
-from dotenv import load_dotenv
-import aioboto3
+import asyncio
+from pathlib import Path
+from botocore.config import Config
 
-load_dotenv()
+R2_ACCOUNT_ID = os.environ["R2_ACCOUNT_ID"]
+R2_ACCESS_KEY_ID = os.environ["R2_ACCESS_KEY_ID"]
+R2_SECRET_ACCESS_KEY = os.environ["R2_SECRET_ACCESS_KEY"]
+R2_BUCKET_NAME = os.environ["R2_BUCKET_NAME"]
+R2_PUBLIC_URL = os.environ.get("R2_PUBLIC_URL", "")  # optional public domain
 
-R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY")
-R2_SECRET_KEY = os.getenv("R2_SECRET_KEY")
-R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
-R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL")
+R2_ENDPOINT = f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
-if not all([R2_ACCESS_KEY, R2_SECRET_KEY, R2_BUCKET_NAME, R2_ENDPOINT_URL]):
-    raise EnvironmentError("R2 environment variables not set!")
 
-# Upload a file to R2
-async def upload_file_to_r2(file: Union[UploadFile, "io.BufferedReader"], filename: str) -> str:
-    session = aioboto3.Session()
-    async with session.client(
+def _get_client():
+    return boto3.client(
         "s3",
-        region_name="auto",
-        endpoint_url=R2_ENDPOINT_URL,
-        aws_access_key_id=R2_ACCESS_KEY,
-        aws_secret_access_key=R2_SECRET_KEY,
-    ) as s3:
-        if hasattr(file, "file"):  # UploadFile object
-            file.file.seek(0)
-            await s3.upload_fileobj(file.file, R2_BUCKET_NAME, filename)
-        else:  # file-like object
-            await s3.upload_fileobj(file, R2_BUCKET_NAME, filename)
-    return filename  # store only filename, URL will be generated via signed URL
+        endpoint_url=R2_ENDPOINT,
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+        config=Config(signature_version="s3v4"),
+    )
 
-# Generate a signed URL for private R2 bucket
+
+async def upload_file_to_r2(file, filename: str) -> str:
+    """Upload a file-like object or UploadFile to R2. Returns the R2 object key (filename)."""
+    # Read content — works for both UploadFile and regular file objects
+    if hasattr(file, "read"):
+        content = file.read()
+        if asyncio.iscoroutine(content):
+            content = await content
+    else:
+        content = file
+
+    def _upload():
+        client = _get_client()
+        client.put_object(
+            Bucket=R2_BUCKET_NAME,
+            Key=filename,
+            Body=content,
+        )
+
+    await asyncio.get_event_loop().run_in_executor(None, _upload)
+
+    # Return just the filename/key — generate signed URLs separately when needed
+    return filename
+
+
 async def get_signed_url(filename: str, expires_in: int = 3600) -> str:
-    session = aioboto3.Session()
-    async with session.client(
-        "s3",
-        region_name="auto",
-        endpoint_url=R2_ENDPOINT_URL,
-        aws_access_key_id=R2_ACCESS_KEY,
-        aws_secret_access_key=R2_SECRET_KEY,
-    ) as s3:
-        url = await s3.generate_presigned_url(
+    """Generate a presigned URL for downloading a file from R2."""
+    def _sign():
+        client = _get_client()
+        return client.generate_presigned_url(
             "get_object",
-            Params={
-                "Bucket": R2_BUCKET_NAME,
-                "Key": filename,
-            },
+            Params={"Bucket": R2_BUCKET_NAME, "Key": filename},
             ExpiresIn=expires_in,
         )
-    return url
+
+    return await asyncio.get_event_loop().run_in_executor(None, _sign)
