@@ -22,6 +22,10 @@ videoManagementApp/
 You can access the full project here:
 https://github.com/artimanputra/videoManagementApp
 
+### 🔗Project Link
+You can view the project here 
+https://video-management-app-gamma.vercel.app/
+
 ### 📘 Documentation Overview
 For ease of review, project documentation has been organized as follows:
 #### 📌 Backend Instructions
