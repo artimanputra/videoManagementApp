@@ -79,18 +79,9 @@ export default function VideoEditorPage() {
   const handleSelectScene = useCallback(
   (index: number) => {
     setSelectedScene(index);
-
-    const seg = liveSegments[index];
-    const v = videoRef.current;
-
-    if (seg && v) {
-      v.currentTime = seg.start;
-      v.play(); 
-    }
   },
-  [liveSegments]
+  []
 );
-
 
   const handlePrevScene = useCallback(() => {
     const next = selectedScene - 1;

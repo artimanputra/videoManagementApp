@@ -29,21 +29,17 @@ export default function PreviewPanel({
 }: PreviewPanelProps) {
   
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !currentSegment) return;
+  const video = videoRef.current;
+  if (!video || !currentSegment) return;
 
-    const handleTimeUpdate = () => {
-      if (video.currentTime >= currentSegment.end) {
-        video.pause();
-        video.currentTime = currentSegment.end; // snap cleanly
-      }
-    };
+  // Seek to the start of the selected scene
+  video.currentTime = currentSegment.start;
 
-    video.addEventListener("timeupdate", handleTimeUpdate);
-    return () => {
-      video.removeEventListener("timeupdate", handleTimeUpdate);
-    };
-  }, [currentSegment, videoRef]);
+  // Autoplay (optional)
+  video.play().catch(() => {
+    // autoplay may be blocked — safe to ignore
+  });
+}, [currentSegment, videoRef]);
 
 
   return (
@@ -59,7 +55,7 @@ export default function PreviewPanel({
           {/* Video */}
           <div className="relative bg-black rounded-lg overflow-hidden aspect-video ring-1 ring-white/10">
             <video
-              key={videoSrc}
+              // key={videoSrc}
               ref={videoRef}
               src={videoSrc}
               controls
