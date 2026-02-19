@@ -1,9 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, func
 from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +10,6 @@ from typing import List
 import tempfile
 import subprocess
 import os
-import shutil
 import aiohttp
 
 from . import storage_r2
@@ -59,7 +57,8 @@ async def create_video(
     with open(temp_path, "wb") as f:
         f.write(contents)
 
-    # ffprobe to get duration
+    del contents  # free memory immediately after writing
+
     cmd = [
         "ffprobe",
         "-v", "error",
@@ -85,7 +84,7 @@ async def create_video(
         file_id=filename,
         title=title,
         description=description,
-        video_url=filename,  # store key only, signed URLs generated on read
+        video_url=filename,
         duration=float(result.stdout.strip()),
         status="Draft",
         created_at=datetime.utcnow(),
@@ -129,32 +128,28 @@ async def update_video(id: str, payload: VideoUpdate, db: AsyncSession = Depends
 
 @app.post("/videos/{id}/split", response_model=SplitResult)
 async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends(get_db)):
-    # Fetch video from DB
     res = await db.execute(select(Video).where(Video.id == id))
     video = res.scalars().first()
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    # Mark video as processing
     video.status = "Processing"
     await db.commit()
 
     segment_urls: List[str] = []
     new_segments: List[VideoSegment] = []
 
-    # Generate signed URL for downloading source from R2
     source_url = await storage_r2.get_signed_url(video.file_id)
 
-    # Download source video from R2 to a temp file
-    async with aiohttp.ClientSession() as session:
-        async with session.get(source_url) as resp:
-            if resp.status != 200:
-                raise HTTPException(status_code=502, detail="Could not fetch video from R2")
-            content = await resp.content.read()
-
+    # Stream download from R2 directly to disk — avoids loading entire video into RAM
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
         tmp_path = Path(tmp_file.name)
-        tmp_file.write(content)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(source_url) as resp:
+                if resp.status != 200:
+                    raise HTTPException(status_code=502, detail="Could not fetch video from R2")
+                async for chunk in resp.content.iter_chunked(1024 * 1024):  # 1MB chunks
+                    tmp_file.write(chunk)
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -180,21 +175,17 @@ async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends
                     stderr=subprocess.PIPE,
                 )
 
-                # Read segment bytes and upload to R2
-                with open(out_tmp, "rb") as segment_file:
-                    segment_contents = segment_file.read()
-
-                await storage_r2.upload_file_to_r2(segment_contents, out_name)
+                # Stream upload from disk — avoids loading segment into RAM
+                await storage_r2.upload_file_path_to_r2(out_tmp, out_name)
 
                 segment_urls.append(out_name)
-
                 new_segments.append(
                     VideoSegment(
                         id=uuid4().hex,
                         video_id=video.id,
                         start=seg.start,
                         end=seg.end,
-                        segment_url=out_name,  # store key only
+                        segment_url=out_name,
                     )
                 )
     finally:

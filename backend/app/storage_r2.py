@@ -2,7 +2,7 @@ import os
 import asyncio
 import boto3
 from botocore.client import Config
-from fastapi import UploadFile
+from pathlib import Path
 from typing import Union
 from dotenv import load_dotenv
 
@@ -28,15 +28,8 @@ def _make_client():
     )
 
 
-async def upload_file_to_r2(file: Union[UploadFile, "io.BufferedReader"], filename: str) -> str:
-    # Read bytes first (async-safe)
-    if hasattr(file, "read"):
-        content = file.read()
-        if asyncio.iscoroutine(content):
-            content = await content
-    else:
-        content = file
-
+async def upload_file_to_r2(content: bytes, filename: str) -> str:
+    """Upload raw bytes to R2 (for small files / upload from memory)."""
     def _upload():
         client = _make_client()
         client.put_object(
@@ -44,6 +37,17 @@ async def upload_file_to_r2(file: Union[UploadFile, "io.BufferedReader"], filena
             Key=filename,
             Body=content,
         )
+
+    await asyncio.get_event_loop().run_in_executor(None, _upload)
+    return filename
+
+
+async def upload_file_path_to_r2(file_path: Path, filename: str) -> str:
+    """Stream upload from a file path — memory efficient for large files."""
+    def _upload():
+        client = _make_client()
+        with open(file_path, "rb") as f:
+            client.upload_fileobj(f, R2_BUCKET_NAME, filename)
 
     await asyncio.get_event_loop().run_in_executor(None, _upload)
     return filename
