@@ -85,6 +85,7 @@ A FastAPI-based video management system with PostgreSQL, async operations, and v
 - `GET /videos/{id}` - Get video details
 - `PATCH /videos/{id}` - Update video
 - `POST /videos/{id}/split` - Split video into segments
+- `DELETE /videos/{id}` — **Delete a video and its segments** 
 
 ### Query Parameters (GET /videos)
 - `page`: Page number (default: 1)
