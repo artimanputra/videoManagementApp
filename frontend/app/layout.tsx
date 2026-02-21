@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Video Manager",
+  title: "SplitStudio",
   description: "Video management frontend",
+  icons: {
+    icon: "/logo2.png",
+  },
 };
 
 export default function RootLayout({
