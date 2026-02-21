@@ -163,7 +163,7 @@ async def split_video(id: str, payload: SplitRequest, db: AsyncSession = Depends
                     "-ss", str(seg.start),
                     "-i", str(tmp_path),
                     "-t", str(seg.end - seg.start),
-                    "-c", "copy",           
+                    "-c", "copy",             # no re-encoding at all, just cuts the stream
                     "-movflags", "faststart",
                     str(out_tmp),
                 ]

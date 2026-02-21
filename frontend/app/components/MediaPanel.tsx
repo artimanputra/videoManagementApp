@@ -12,7 +12,7 @@ interface MediaPanelProps {
 export default function MediaPanel({ video, apiBase }: MediaPanelProps) {
   return (
     <div className="w-60 flex-shrink-0 border-r border-white/10 flex flex-col bg-[#111]">
-      {/* Header */}
+   
 
 <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
   <h2 className="text-white/80 text-md font-bold uppercase tracking-widest">
@@ -40,8 +40,7 @@ export default function MediaPanel({ video, apiBase }: MediaPanelProps) {
   </Link>
 </div>
 
-      <div className="flex-1 p-3 overflow-y-auto">
-        {/* Source video card */}
+      <div className="flex-1 p-3 overflow-y-auto">       
         <div className="border-2 border-red-500/60 rounded-lg overflow-hidden bg-black/30">
           <div className="aspect-video relative bg-black">
             <video
@@ -56,7 +55,7 @@ export default function MediaPanel({ video, apiBase }: MediaPanelProps) {
                 </svg>
               </div>
             </div>
-            {/* Duration badge */}
+            
             <div className="absolute bottom-1.5 right-1.5 bg-black/70 rounded px-1.5 py-0.5 text-[10px] text-white/80 font-mono">
               {formatTimeShort(video.duration || 0)}
             </div>

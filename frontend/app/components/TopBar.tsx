@@ -15,7 +15,7 @@ export default function TopBar({ video, splitting, canSplit, splitError, onSplit
   return (
     <header className="h-12 flex items-center gap-4 px-5 border-b border-white/10 bg-[#111] flex-shrink-0">
       <Link
-        href="/"
+        href="/dashboard"
         className="text-white/40 hover:text-white/70 text-sm transition-colors flex items-center gap-1.5"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -25,8 +25,6 @@ export default function TopBar({ video, splitting, canSplit, splitError, onSplit
       </Link>
 
       <div className="w-px h-5 bg-white/10" />
-
-      {/* Project info */}
       <div className="flex flex-col leading-none">
         <span className="text-[9px] text-white/25 uppercase tracking-wider">Project</span>
         <span className="text-white/80 text-md font-bold truncate max-w-[220px] mt-0.5">
@@ -34,7 +32,6 @@ export default function TopBar({ video, splitting, canSplit, splitError, onSplit
         </span>
       </div>
 
-      {/* Status badge */}
       <span
         className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
           ${video.status === "Ready"

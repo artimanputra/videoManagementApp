@@ -32,30 +32,24 @@ export default function PreviewPanel({
   const video = videoRef.current;
   if (!video || !currentSegment) return;
 
-  // Seek to the start of the selected scene
-  video.currentTime = currentSegment.start;
+    video.currentTime = currentSegment.start;
 
-  // Autoplay (optional)
-  video.play().catch(() => {
-    // autoplay may be blocked — safe to ignore
+  video.play().catch(() => {    
   });
 }, [currentSegment, videoRef]);
 
 
   return (
     <div className="flex-1 flex flex-col bg-[#0a0a0a] min-w-0">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-white/10 flex-shrink-0">
         <h2 className="text-white/80 text-md font-bold uppercase tracking-widest">Preview</h2>
       </div>
 
-      {/* Player area */}
       <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
         <div className="w-full max-w-2xl flex flex-col gap-3">
-          {/* Video */}
           <div className="relative bg-black rounded-lg overflow-hidden aspect-video ring-1 ring-white/10">
             <video
-              // key={videoSrc}
+              key={videoSrc}
               ref={videoRef}
               src={videoSrc}
               controls
@@ -65,7 +59,6 @@ export default function PreviewPanel({
             />
           </div>
 
-          {/* Timecode bar */}
           {currentSegment && (
             <div className="flex items-center gap-3 px-1">
               <div className="flex items-center gap-1.5">
@@ -87,7 +80,6 @@ export default function PreviewPanel({
             </div>
           )}
 
-          {/* Scene navigation */}
           {totalScenes > 1 && (
             <div className="flex items-center justify-center gap-3">
               <button
@@ -101,7 +93,6 @@ export default function PreviewPanel({
                 Prev
               </button>
 
-              {/* Scene dots */}
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(totalScenes, 10) }).map((_, i) => (
                   <div

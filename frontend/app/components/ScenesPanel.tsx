@@ -4,17 +4,14 @@ import { VideoSegment, Segment, SegmentGroup } from "../types/types";
 import { formatTimeShort, formatDate, groupSegmentsByBatch } from "../utils/utils";
 
 interface ScenesPanelProps {
-  // Live cuts (not yet split/saved)
   liveSegments: Segment[];
   selectedScene: number;
   onSelectScene: (index: number) => void;
   totalDuration: number;
 
-  // Saved segments from DB
   savedSegments: VideoSegment[];
   apiBase: string;
 
-  // Split results from latest operation (URLs)
   splitResult: string[];
 }
 
@@ -58,7 +55,6 @@ function LiveSceneItem({
         </span>
       </div>
 
-      {/* Progress bar showing position in full video */}
       <div className="px-3 pb-2">
         <div className="h-1 bg-white/5 rounded-full overflow-hidden">
           <div
@@ -87,7 +83,6 @@ function SavedSegmentGroup({
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
-      {/* Group header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-white/[0.03]">
         <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
         <span className="text-green-400 text-[10px] font-bold uppercase tracking-wider">
@@ -96,7 +91,6 @@ function SavedSegmentGroup({
         <span className="text-white/20 text-[9px] ml-auto">{formatDate(group.createdAt)}</span>
       </div>
 
-      {/* Segments in this group */}
       <div className="divide-y divide-white/5">
         {group.segments.map((seg, i) => (
           <div key={seg.id} className="flex items-center gap-2 px-3 py-2">
@@ -107,7 +101,6 @@ function SavedSegmentGroup({
               <p className="text-white/60 text-[10px] font-semibold">
                 {formatTimeShort(seg.start)} → {formatTimeShort(seg.end)}
               </p>
-              {/* Mini bar */}
               <div className="h-0.5 bg-white/5 rounded-full mt-1 overflow-hidden">
                 <div
                   className="h-full bg-green-500/50 rounded-full"
@@ -167,7 +160,6 @@ export default function ScenesPanel({
 
   return (
     <div className="w-72 flex-shrink-0 border-r border-white/10 flex flex-col bg-[#111]">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between flex-shrink-0">
         <h2 className="text-white/80 text-md font-bold uppercase tracking-widest">Scenes</h2>
         <span className="w-5 h-5 bg-white/10 rounded-full text-[10px] text-white/50 flex items-center justify-center font-bold">
@@ -176,7 +168,6 @@ export default function ScenesPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* ── Live cuts (pending split) ─────────────────────── */}
         <div className="p-2 space-y-1">
           {liveSegments.length === 0 ? (
             <div className="text-center py-8 text-white/20 text-xs">
@@ -200,7 +191,6 @@ export default function ScenesPanel({
           )}
         </div>
 
-        {/* ── Divider between live and saved ───────────────── */}
         {hasSaved && (
           <div className="flex items-center gap-2 px-3 py-2 border-t border-white/10 mt-1">
             <div className="flex-1 h-px bg-white/5" />
@@ -211,7 +201,6 @@ export default function ScenesPanel({
           </div>
         )}
 
-        {/* ── Saved segment groups ──────────────────────────── */}
         {hasSaved && (
           <div className="px-2 pb-3 space-y-2">
             {segmentGroups.map((group, gi) => (
@@ -225,32 +214,7 @@ export default function ScenesPanel({
             ))}
           </div>
         )}
-      </div>
-
-      {/* Latest split success banner */}
-      {splitResult.length > 0 && (
-        <div className="p-3 border-t border-white/10 flex-shrink-0">
-          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-            <p className="text-green-400 text-[10px] font-bold flex items-center gap-1.5 mb-1.5">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-              Split successful — {splitResult.length} segment{splitResult.length !== 1 ? "s" : ""}
-            </p>
-            {splitResult.map((url, i) => (
-              <a
-                key={i}
-                href={`${apiBase}${url}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-green-400/60 hover:text-green-300 text-[9px] block truncate transition-colors"
-              >
-                → Segment {i + 1}
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>     
     </div>
   );
 }

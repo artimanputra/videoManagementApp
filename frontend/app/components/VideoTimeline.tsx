@@ -28,7 +28,6 @@ export default function VideoTimeline({
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const previewTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Derive segments from cuts
   const segments = useMemo<Segment[]>(() => {
     const all = [0, ...cuts, duration].sort((a, b) => a - b);
     return all.slice(0, -1).map((start, i) => ({ start, end: all[i + 1] }));
@@ -38,7 +37,6 @@ export default function VideoTimeline({
     onSegmentsChange?.(segments);
   }, [segments, onSegmentsChange]);
 
-  // Track playhead
   useEffect(() => {
     const v = videoRef?.current;
     if (!v) return;
@@ -80,7 +78,6 @@ export default function VideoTimeline({
     [duration]
   );
 
-  // Global mouse move/up for dragging cut handles
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (draggingCut.current === null) return;
@@ -109,7 +106,6 @@ export default function VideoTimeline({
     });
   };
 
-  // Time ruler marks
   const rulerMarks = useMemo(() => {
     const marks: number[] = [];
     const step = duration > 120 ? 10 : duration > 60 ? 5 : duration > 20 ? 2 : 1;
@@ -119,15 +115,15 @@ export default function VideoTimeline({
 
   return (
     <div className="flex flex-col h-full bg-[#111111] select-none">
-      {/* ── Toolbar ── */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-white/10 flex-shrink-0">
         <button
           onClick={addCutAtPlayhead}
           className="flex items-center gap-1.5 text-xs font-semibold text-white/70 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded transition-all"
         >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M6 3 L6 21 M18 3 L18 21 M6 12 L18 12" />
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m7.848 8.25 1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 1 1-5.196 3 3 3 0 0 1 5.196-3Zm1.536-.887a2.165 2.165 0 0 0 1.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863 2.077-1.199m0-3.328a4.323 4.323 0 0 1 2.068-1.379l5.325-1.628a4.5 4.5 0 0 1 2.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.33 4.33 0 0 0 10.607 12m3.736 0 7.794 4.5-.802.215a4.5 4.5 0 0 1-2.48-.043l-5.326-1.629a4.324 4.324 0 0 1-2.068-1.379M14.343 12l-2.882 1.664" />
+        </svg>
+
           Split at Playhead
         </button>
 
@@ -159,11 +155,9 @@ export default function VideoTimeline({
         </div>
       </div>
 
-      {/* ── Scrollable track area ── */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div style={{ width: `${zoom * 100}%`, minWidth: "100%", height: "100%", position: "relative" }}>
 
-          {/* Time ruler */}
           <div className="h-6 border-b border-white/10 relative bg-[#0d0d0d] flex-shrink-0">
             {rulerMarks.map((t) => (
               <div
@@ -177,7 +171,6 @@ export default function VideoTimeline({
                 </span>
               </div>
             ))}
-            {/* Half-marks */}
             {rulerMarks.slice(0, -1).map((t, i) => {
               const mid = t + (rulerMarks[i + 1] - t) / 2;
               return (
@@ -192,7 +185,6 @@ export default function VideoTimeline({
             })}
           </div>
 
-          {/* Film track */}
           <div
             ref={timelineRef}
             className="relative mx-3 my-1.5 rounded-lg overflow-hidden border border-white/10 cursor-crosshair"
@@ -205,7 +197,6 @@ export default function VideoTimeline({
               seekTo(t);
             }}
           >
-            {/* Sprocket holes - top */}
             <div className="absolute top-0 left-0 right-0 h-[14px] flex overflow-hidden z-[1] bg-[#0a0a0a]">
               {Array.from({ length: 60 }).map((_, i) => (
                 <div key={i} className="w-[26px] h-full flex items-center justify-center flex-shrink-0">
@@ -213,7 +204,6 @@ export default function VideoTimeline({
                 </div>
               ))}
             </div>
-            {/* Sprocket holes - bottom */}
             <div className="absolute bottom-0 left-0 right-0 h-[14px] flex overflow-hidden z-[1] bg-[#0a0a0a]">
               {Array.from({ length: 60 }).map((_, i) => (
                 <div key={i} className="w-[26px] h-full flex items-center justify-center flex-shrink-0">
@@ -222,7 +212,6 @@ export default function VideoTimeline({
               ))}
             </div>
 
-            {/* Segment zones */}
             {segments.map((seg, i) => (
               <div
                 key={i}
@@ -254,7 +243,6 @@ export default function VideoTimeline({
               </div>
             ))}
 
-            {/* Cut handles (amber) */}
             {cuts.map((cut, i) => (
               <div
                 key={i}
@@ -263,39 +251,30 @@ export default function VideoTimeline({
                 onMouseDown={(e) => { e.stopPropagation(); draggingCut.current = i; }}
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Top tab */}
                 <div className="w-2.5 h-[14px] bg-amber-400 group-hover:bg-amber-300 transition-colors rounded-b flex items-end justify-center pb-0.5">
                   <div className="w-0.5 h-2 bg-amber-800/60 rounded-full" />
                 </div>
-                {/* Line */}
                 <div className="w-[2px] flex-1 bg-amber-400/85 group-hover:bg-amber-300 transition-colors" />
-                {/* Bottom tab */}
                 <div className="w-2.5 h-[14px] bg-amber-400 group-hover:bg-amber-300 transition-colors rounded-t flex items-start justify-center pt-0.5">
                   <div className="w-0.5 h-2 bg-amber-800/60 rounded-full" />
                 </div>
 
-                {/* Time tooltip */}
                 <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                   {formatTimeShort(cut)}
                 </div>
               </div>
             ))}
-
-            {/* Playhead */}
             {duration > 0 && (
               <div
                 className="absolute top-0 bottom-0 z-[30] pointer-events-none"
                 style={{ left: `${(playhead / duration) * 100}%` }}
               >
-                {/* Triangle head */}
                 <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[8px] border-l-transparent border-r-transparent border-t-white -translate-x-[5px]" />
-                {/* Line */}
                 <div className="w-[1.5px] h-full bg-white/75 -translate-x-[0.75px]" />
               </div>
             )}
           </div>
 
-          {/* Hint bar */}
           <div className="px-4 pb-1 text-[9px] text-white/15 flex items-center gap-4">
             <span>Click to seek</span>
             <span>·</span>
